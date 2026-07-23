@@ -216,9 +216,16 @@ h1 span{color:var(--gold)}
 
 <script>
 /* ================= LIVE HOOKUP =================
-   Paste the published-CSV link of the "📊 Dashboard Data"
-   tab between the quotes. Blank = built-in sample data.   */
-const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQGROLZ9Ku565zZuiVhtVevX1k1t_7jpmSRxMIq_kkViNeRsMgKadCannt6p1bBQ98ZW8aR_tAhub7S/pub?gid=425714547&single=true&output=csv";
+   Addresses the tab by NAME, not by gid — so it keeps
+   working after every File → Import → Replace.
+   Requires the Sheet to be viewable by link (or published). */
+const SHEET_ID  = "1spCK36gZmF4oZsEJ4f1MzdyDqBYsKYwwZiPqMQ8x1rM";
+const SHEET_TAB = "📊 Dashboard Data";
+const CSV_CANDIDATES = [
+  `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_TAB)}`,
+  `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent("Dashboard Data")}`,
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQGROLZ9Ku565zZuiVhtVevX1k1t_7jpmSRxMIq_kkViNeRsMgKadCannt6p1bBQ98ZW8aR_tAhub7S/pub?gid=425714547&single=true&output=csv"
+];
 
 const PALETTE = {high:"#F07860", mid:"#C99B4F", low:"#5C7089", target:"#E6B450",
   buckets:{"Fixed Bills":"#5C7089","Debt Payments":"#F07860","Savings & Funds":"#43D6A4","Variable Spending":"#E6B450","Subscriptions":"#C99B4F"},
@@ -344,9 +351,10 @@ function render(d, live){
   drawSankey(d);
   const pill=document.getElementById('statusPill');
   pill.classList.toggle('live',!!live);
+  const stamp=new Date().toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
   document.getElementById('statusText').textContent=
-    live?"live · reading your sheet":"sample data · connect your sheet to go live";
-  if(live)document.getElementById('footNote').innerHTML="<b>Live.</b> Numbers update automatically from MASTER_Finance_Tracker whenever this page loads.";
+    live?("live · synced "+stamp):"sample data · not connected";
+  if(live)document.getElementById('footNote').innerHTML="<b>Live.</b> Reading the “📊 Dashboard Data” tab of MASTER_Finance_Tracker by name, so it survives every Import → Replace. Numbers refresh each time this page loads.";
   window.__d=d;
 }
 
@@ -403,14 +411,35 @@ function mapSheet(rows){
   return d;
 }
 
-function boot(){
-  if(!SHEET_CSV_URL){render(SAMPLE,false);return;}
-  Papa.parse(SHEET_CSV_URL,{download:true,header:true,
-    complete:res=>{try{render(mapSheet(res.data),true)}
-      catch(e){console.error(e);render(SAMPLE,false);
-        document.getElementById('statusText').textContent="couldn't parse sheet — showing sample";}},
-    error:()=>{render(SAMPLE,false);
-      document.getElementById('statusText').textContent="sheet unreachable — showing sample";}});
+function setStatus(txt, live){
+  const pill=document.getElementById('statusPill');
+  pill.classList.toggle('live',!!live);
+  document.getElementById('statusText').textContent=txt;
+}
+
+function tryUrl(url){
+  return new Promise((resolve,reject)=>{
+    Papa.parse(url,{download:true,header:true,
+      complete:res=>{
+        try{ resolve(mapSheet(res.data)); }
+        catch(e){ reject(new Error("parsed but no debt rows")); }
+      },
+      error:err=>reject(new Error("unreachable"))
+    });
+  });
+}
+
+async function boot(){
+  setStatus("connecting to your sheet…",false);
+  for(let i=0;i<CSV_CANDIDATES.length;i++){
+    try{
+      const data=await tryUrl(CSV_CANDIDATES[i]);
+      render(data,true);
+      return;
+    }catch(e){ console.warn("source "+(i+1)+" failed:",e.message); }
+  }
+  render(SAMPLE,false);
+  setStatus("can't reach sheet — showing sample (check link sharing)",false);
 }
 /* ---- Payment calendar (stable monthly due dates) ---- */
 const CAL = {
