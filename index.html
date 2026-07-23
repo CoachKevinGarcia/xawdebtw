@@ -113,6 +113,24 @@ h1 span{color:var(--gold)}
 .fund .bar{height:6px;border-radius:99px;background:rgba(160,180,205,.1);overflow:hidden}
 .fund .bar i{display:block;height:100%;border-radius:99px;width:0%;transition:width 1s cubic-bezier(.2,.8,.2,1)}
 
+/* calendar */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.calcell{background:rgba(160,180,205,.03);border:1px solid var(--panel-line);border-radius:8px;min-height:74px;padding:7px 8px;display:flex;flex-direction:column;gap:5px}
+.calcell .d{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim)}
+.calcell.has .d{color:var(--silver)}
+.calcell.hi{background:rgba(240,120,96,.09);border-color:rgba(240,120,96,.22)}
+.calcell.mid{background:rgba(230,180,80,.09);border-color:rgba(230,180,80,.22)}
+.calcell.low{background:rgba(67,214,164,.07);border-color:rgba(67,214,164,.2)}
+.calcell.neu{background:rgba(92,112,137,.12);border-color:rgba(92,112,137,.3)}
+.chip{font-family:'IBM Plex Mono',monospace;font-size:9.5px;line-height:1.25}
+.chip .nm{display:block}.chip .am{display:block;color:var(--white);font-weight:600}
+.chip.hi .nm{color:var(--coral)}.chip.mid .nm{color:var(--gold)}.chip.low .nm{color:var(--mint)}.chip.neu .nm{color:var(--silver)}
+.callegend{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:14px;font-size:10.5px;color:var(--silver)}
+.callegend span{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace}
+.callegend i{width:8px;height:8px;border-radius:2.5px}
+.calnote{margin-top:14px;padding-top:13px;border-top:1px solid var(--hair);font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--silver);line-height:1.7}
+.calnote .warn{color:var(--gold)}
+@media(max-width:600px){.cal{grid-template-columns:repeat(4,1fr)}.calcell{min-height:60px}}
 .note{margin-top:22px;font-size:10.5px;color:var(--dim);line-height:1.7;font-family:'IBM Plex Mono',monospace}
 .note b{color:var(--silver)}
 @media(max-width:820px){.kpis{grid-template-columns:repeat(2,1fr)}.kpi:nth-child(3)::before{display:none}.grid{grid-template-columns:1fr}.free{text-align:left}}
@@ -172,6 +190,21 @@ h1 span{color:var(--gold)}
     <div class="panel full">
       <div class="phead"><h2>Where the Money Flows</h2><span class="meta">latest month, by category</span></div>
       <svg id="sankey"></svg>
+    </div>
+
+    <div class="panel full">
+      <div class="phead"><h2>Payment Calendar</h2><span class="meta" id="calMeta">same dates every month</span></div>
+      <div class="cal" id="cal"></div>
+      <div class="callegend">
+        <span><i style="background:var(--coral)"></i> high 20%+ (kill first)</span>
+        <span><i style="background:var(--gold)"></i> medium 5–19%</span>
+        <span><i style="background:var(--mint)"></i> low / 0%</span>
+        <span>(K) Kevin · (B) Betsy</span>
+      </div>
+      <div class="calnote">
+        <span class="warn">⚠️ Mid-month (14th–20th) is heavy</span> — fund the account before the 14th.<br>
+        💤 Deferred, no payment due now: First Mark (B), Nelnet (K).
+      </div>
     </div>
   </div>
 
@@ -379,8 +412,37 @@ function boot(){
     error:()=>{render(SAMPLE,false);
       document.getElementById('statusText').textContent="sheet unreachable — showing sample";}});
 }
+/* ---- Payment calendar (stable monthly due dates) ---- */
+const CAL = {
+  1:[{nm:"IRS (K)",am:"$305",t:"neu"}],
+  3:[{nm:"Citi (B)",am:"$103",t:"low"}],
+  5:[{nm:"Chase Freedom (B)",am:"$263",t:"hi"}],
+  14:[{nm:"Chase Sapphire (B)",am:"$790",t:"hi"}],
+  17:[{nm:"Toyota (K)",am:"$258",t:"low"},{nm:"Mohela #2 (B)",am:"$53",t:"low"}],
+  19:[{nm:"Capital One (K)",am:"$305",t:"hi"}],
+  20:[{nm:"Hyundai (B)",am:"$385",t:"mid"}]
+};
+function renderCalendar(){
+  const el=document.getElementById('cal'); if(!el)return; el.innerHTML="";
+  let total=0;
+  for(let day=1; day<=31; day++){
+    const items=CAL[day];
+    const cell=document.createElement('div');
+    cell.className="calcell"+(items?" has "+items[0].t:"");
+    let html=`<span class="d">${day}</span>`;
+    if(items) items.forEach(x=>{
+      total+=parseFloat(x.am.replace(/[$,]/g,''));
+      html+=`<span class="chip ${x.t}"><span class="nm">${x.nm}</span><span class="am">${x.am}</span></span>`;
+    });
+    cell.innerHTML=html;
+    el.appendChild(cell);
+  }
+  document.getElementById('calMeta').textContent="$"+total.toLocaleString()+" / month · same dates monthly";
+}
+
 window.addEventListener('resize',()=>{if(window.__d)drawSankey(window.__d)});
 boot();
+renderCalendar();
 </script>
 </body>
 </html>
